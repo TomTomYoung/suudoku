@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数独ゲーム</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .difficulty-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .seed-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-items: center;
+        }
+        .seed-controls input {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 150px;
+        }
+        .sudoku-grid {
+            display: grid;
+            grid-template-columns: repeat(9, 40px);
+            grid-template-rows: repeat(9, 40px);
+            gap: 0;
+            border: 3px solid #000;
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .cell {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            background-color: #fff;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            user-select: none;
+            border: 1px solid #ccc;
+        }
+
+        /* 垂直線の太線 */
+        .sudoku-grid::before {
+            content: "";
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+            background-image: 
+                linear-gradient(to right, transparent, transparent 119px, #000 119px, #000 123px, transparent 123px, transparent),
+                linear-gradient(to right, transparent, transparent 239px, #000 239px, #000 243px, transparent 243px, transparent);
+        }
+
+        /* 水平線の太線 */
+        .sudoku-grid::after {
+            content: "";
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 2;
+            background-image: 
+                linear-gradient(to bottom, transparent, transparent 119px, #000 119px, #000 123px, transparent 123px, transparent),
+                linear-gradient(to bottom, transparent, transparent 239px, #000 239px, #000 243px, transparent 243px, transparent);
+        }
+        .cell.fixed {
+            font-weight: bold;
+            background-color: #f0f0f0;
+            cursor: not-allowed;
+        }
+        .cell.selected {
+            background-color: #d4e9ff;
+        }
+        .cell.error {
+            color: #ff0000;
+        }
+        .cell.same-number {
+            background-color: #e6f3ff;
+        }
+        /* Enhanced 3x3 borders */
+        .box-border-right {
+            border-right: 3px solid #000;
+        }
+        .box-border-bottom {
+            border-bottom: 3px solid #000;
+        }
+        .number-pad {
+            display: grid;
+            grid-template-columns: repeat(5, 40px);
+            gap: 5px;
+            margin: 20px 0;
+        }
+        .number {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            background-color: #4CAF50;
+            color: white;
+            border-radius: 50%;
+            cursor: pointer;
+            user-select: none;
+        }
+        .number:hover {
+            background-color: #45a049;
+        }
+        .erase {
+            grid-column: span 5;
+            background-color: #f44336;
+        }
+        .timer {
+            font-size: 24px;
+            margin-bottom: 15px;
+        }
+        button {
+            padding: 10px 15px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .info {
+            margin-top: 20px;
+            max-width: 600px;
+            text-align: center;
+        }
+        /* Enhanced victory display */
+        .victory-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 100;
+            justify-content: center;
+            align-items: center;
+        }
+        .victory-message {
+            background-color: white;
+            padding: 40px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            animation: victory-pop 0.5s ease-out;
+        }
+        .victory-title {
+            font-size: 36px;
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+        .victory-stats {
+            font-size: 18px;
+            margin-bottom: 30px;
+        }
+        .victory-button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 18px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        @keyframes victory-pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        /* Tooltip for seed copy */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            width: 140px;
+            background-color: #555;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px;
+            position: absolute;
+            z-index: 1;
+            bottom: 150%;
+            left: 50%;
+            margin-left: -70px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip .tooltiptext.show {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* JSONインポート/エクスポート用のスタイル */
+        .json-container {
+            width: 100%;
+            max-width: 600px;
+            margin: 20px auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .json-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-family: monospace;
+            resize: vertical;
+        }
+        .json-button {
+            background-color: #2196F3;
+        }
+        .json-button:hover {
+            background-color: #0b7dda;
+        }
+    </style>
+</head>
+<body>
+    <h1>数独ゲーム</h1>
+    
+    <div id="timer" class="timer">00:00</div>
+    
+    <div class="difficulty-selector">
+        <label>難易度:</label>
+        <button id="easy">簡単</button>
+        <button id="medium">中級</button>
+        <button id="hard">難しい</button>
+    </div>
+    
+    <div class="seed-controls">
+        <label>シード:</label>
+        <input type="text" id="seed-input" placeholder="シードを入力">
+        <button id="use-seed">このシードで生成</button>
+        <div class="tooltip">
+            <button id="copy-seed">現在のシードをコピー</button>
+            <span class="tooltiptext" id="copy-tooltip">コピーしました！</span>
+        </div>
+    </div>
+    
+    <!-- JSONインポート/エクスポート機能を追加 -->
+    <div class="json-container">
+        <h3>JSON インポート/エクスポート</h3>
+        <div>
+            <label for="export-json">盤面をエクスポート:</label>
+            <div class="json-row">
+                <textarea id="export-json" readonly placeholder="「エクスポート」ボタンをクリックすると、現在の盤面のJSONがここに表示されます"></textarea>
+                <button id="export" class="json-button">エクスポート</button>
+            </div>
+        </div>
+        <div>
+            <label for="import-json">盤面をインポート:</label>
+            <div class="json-row">
+                <textarea id="import-json" placeholder="インポートするJSONをここに貼り付けてください"></textarea>
+                <button id="import" class="json-button">インポート</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="generate">新しい数独を生成</button>
+        <button id="check">チェック</button>
+        <button id="hint">ヒント</button>
+        <button id="solve">解く</button>
+    </div>
+    
+    <div id="sudoku-grid" class="sudoku-grid"></div>
+    
+    <div id="number-pad" class="number-pad">
+        <div class="number" data-number="1">1</div>
+        <div class="number" data-number="2">2</div>
+        <div class="number" data-number="3">3</div>
+        <div class="number" data-number="4">4</div>
+        <div class="number" data-number="5">5</div>
+        <div class="number" data-number="6">6</div>
+        <div class="number" data-number="7">7</div>
+        <div class="number" data-number="8">8</div>
+        <div class="number" data-number="9">9</div>
+        <div class="number erase" data-number="0">消去</div>
+    </div>
+    
+    <div class="info">
+        <p id="status">「新しい数独を生成」ボタンをクリックして開始してください。</p>
+    </div>
+    
+    <!-- Victory popup -->
+    <div id="victory-container" class="victory-container">
+        <div class="victory-message">
+            <div class="victory-title">クリア！おめでとうございます！</div>
+            <div class="victory-stats" id="victory-stats">クリア時間: 00:00</div>
+            <button class="victory-button" id="victory-close">閉じる</button>
+        </div>
+    </div>
+
+    <script>
+        // グローバル変数
+        let grid = Array(9).fill().map(() => Array(9).fill(0));
+        let solution = Array(9).fill().map(() => Array(9).fill(0));
+        let userGrid = Array(9).fill().map(() => Array(9).fill(0));
+        let fixedCells = Array(9).fill().map(() => Array(9).fill(false));
+        let difficulty = 'medium'; // デフォルトの難易度
+        let selectedCell = null;
+        let timer = null;
+        let seconds = 0;
+        let gameActive = false;
+        let currentSeed = null;
+
+        // DOMが読み込まれた後に実行
+        document.addEventListener('DOMContentLoaded', () => {
+            // 難易度選択ボタンのイベントリスナー
+            document.getElementById('easy').addEventListener('click', () => setDifficulty('easy'));
+            document.getElementById('medium').addEventListener('click', () => setDifficulty('medium'));
+            document.getElementById('hard').addEventListener('click', () => setDifficulty('hard'));
+            
+            // シード関連のイベントリスナー
+            document.getElementById('use-seed').addEventListener('click', useSeedFromInput);
+            document.getElementById('copy-seed').addEventListener('click', copyCurrentSeed);
+            
+            //JSON入出力
+            document.getElementById('export').addEventListener('click', exportToJSON);
+            document.getElementById('import').addEventListener('click', importFromJSON);
+
+            // 操作ボタンのイベントリスナー
+            document.getElementById('generate').addEventListener('click', startNewGame);
+            document.getElementById('check').addEventListener('click', checkSolution);
+            document.getElementById('hint').addEventListener('click', giveHint);
+            document.getElementById('solve').addEventListener('click', showSolution);
+            
+            // 勝利ポップアップの閉じるボタン
+            document.getElementById('victory-close').addEventListener('click', () => {
+                document.getElementById('victory-container').style.display = 'none';
+            });
+            
+            // 数字パッドのイベントリスナー
+            document.querySelectorAll('.number').forEach(numButton => {
+                numButton.addEventListener('click', () => {
+                    if (selectedCell && !gameActive) {
+                        // ゲーム開始
+                        startTimer();
+                        gameActive = true;
+                    }
+                    
+                    const number = parseInt(numButton.getAttribute('data-number'));
+                    enterNumber(number);
+                });
+            });
+            
+            // 初期グリッドの描画
+            renderGrid();
+        });
+
+        // シード関連の機能
+        function generateRandomSeed() {
+            return Math.floor(Math.random() * 1000000000).toString();
+        }
+        
+        function useSeedFromInput() {
+            const seedInput = document.getElementById('seed-input');
+            let seed = seedInput.value.trim();
+            
+            if (!seed) {
+                seed = generateRandomSeed();
+                seedInput.value = seed;
+            }
+            
+            startNewGameWithSeed(seed);
+        }
+        
+        function copyCurrentSeed() {
+            if (!currentSeed) {
+                alert('まだシードが生成されていません。数独を生成してから試してください。');
+                return;
+            }
+            
+            navigator.clipboard.writeText(currentSeed).then(() => {
+                // ツールチップを表示
+                const tooltip = document.getElementById('copy-tooltip');
+                tooltip.classList.add('show');
+                setTimeout(() => {
+                    tooltip.classList.remove('show');
+                }, 2000);
+            });
+        }
+        
+        // 乱数生成器（シードから一貫した乱数を生成）
+        class SeededRandom {
+            constructor(seed) {
+                this.seed = this.hash(seed);
+            }
+            
+            // 簡易なハッシュ関数
+            hash(seed) {
+                let str = seed.toString();
+                let hash = 0;
+                for (let i = 0; i < str.length; i++) {
+                    let char = str.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash; // 32bit整数に変換
+                }
+                return Math.abs(hash);
+            }
+            
+            // 0-1の範囲で乱数を生成
+            random() {
+                const x = Math.sin(this.seed++) * 10000;
+                return x - Math.floor(x);
+            }
+            
+            // 範囲を指定して整数の乱数を生成
+            randomInt(min, max) {
+                return Math.floor(this.random() * (max - min + 1)) + min;
+            }
+        }
+        
+        // シードを使った配列のシャッフル
+        function seededShuffle(array, random) {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(random.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        }
+
+        // 難易度の設定
+        function setDifficulty(level) {
+            difficulty = level;
+            document.getElementById('status').textContent = `難易度が${getDifficultyText()}に設定されました。`;
+        }
+
+        // 難易度のテキストを取得
+        function getDifficultyText() {
+            switch(difficulty) {
+                case 'easy': return '簡単';
+                case 'medium': return '中級';
+                case 'hard': return '難しい';
+                default: return '中級';
+            }
+        }
+
+        // タイマー開始
+        function startTimer() {
+            // 既存のタイマーをクリア
+            if (timer) {
+                clearInterval(timer);
+            }
+            
+            seconds = 0;
+            updateTimerDisplay();
+            
+            timer = setInterval(() => {
+                seconds++;
+                updateTimerDisplay();
+            }, 1000);
+        }
+
+        // タイマー停止
+        function stopTimer() {
+            if (timer) {
+                clearInterval(timer);
+                timer = null;
+            }
+        }
+
+        // タイマー表示更新
+        function updateTimerDisplay() {
+            const minutes = Math.floor(seconds / 60);
+            const remainingSeconds = seconds % 60;
+            document.getElementById('timer').textContent = 
+                `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+        }
+
+        // タイマーの時間をフォーマット
+        function formatTime(totalSeconds) {
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
+            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        }
+
+    
+        // グリッドの描画
+        // グリッドの描画
+        function renderGrid() {
+            const gridContainer = document.getElementById('sudoku-grid');
+            gridContainer.innerHTML = '';
+            
+            // セルを追加
+            for (let i = 0; i < 9; i++) {
+                for (let j = 0; j < 9; j++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    
+                    if (fixedCells[i][j]) {
+                        cell.textContent = grid[i][j];
+                        cell.classList.add('fixed');
+                    } else if (userGrid[i][j] !== 0) {
+                        cell.textContent = userGrid[i][j];
+                    }
+                    
+                    // セルのデータ属性を設定
+                    cell.setAttribute('data-row', i);
+                    cell.setAttribute('data-col', j);
+                    
+                    // セルのクリックイベント
+                    cell.addEventListener('click', () => selectCell(cell, i, j));
+                    
+                    gridContainer.appendChild(cell);
+                }
+            }
+        }
+        // セルの選択
+        function selectCell(cell, row, col) {
+            // 固定セルは選択できない
+            if (fixedCells[row][col]) {
+                return;
+            }
+            
+            // 以前に選択したセルの選択解除
+            if (selectedCell) {
+                selectedCell.classList.remove('selected');
+            }
+            
+            // 同じ数字を持つセルのハイライトを解除
+            document.querySelectorAll('.same-number').forEach(c => {
+                c.classList.remove('same-number');
+            });
+            
+            // 新しいセルを選択
+            selectedCell = cell;
+            cell.classList.add('selected');
+            
+            // 同じ数字を持つセルをハイライト
+            const number = userGrid[row][col];
+            if (number !== 0) {
+                highlightSameNumbers(number);
+            }
+        }
+
+        // 同じ数字をハイライト
+        function highlightSameNumbers(number) {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                const r = parseInt(cell.getAttribute('data-row'));
+                const c = parseInt(cell.getAttribute('data-col'));
+                
+                if ((fixedCells[r][c] && grid[r][c] === number) || 
+                    (!fixedCells[r][c] && userGrid[r][c] === number)) {
+                    cell.classList.add('same-number');
+                }
+            });
+        }
+
+        // 数字の入力
+        function enterNumber(number) {
+            if (!selectedCell) return;
+            
+            const row = parseInt(selectedCell.getAttribute('data-row'));
+            const col = parseInt(selectedCell.getAttribute('data-col'));
+            
+            // 固定セルは変更できない
+            if (fixedCells[row][col]) return;
+            
+            userGrid[row][col] = number;
+            
+            // エラーチェック
+            const isError = number !== 0 && number !== solution[row][col];
+            
+            // セルの表示更新
+            selectedCell.textContent = number === 0 ? '' : number;
+            selectedCell.classList.remove('error');
+            
+            if (isError) {
+                selectedCell.classList.add('error');
+            }
+            
+            // 同じ数字のハイライト更新
+            document.querySelectorAll('.same-number').forEach(c => {
+                c.classList.remove('same-number');
+            });
+            
+            if (number !== 0) {
+                highlightSameNumbers(number);
+            }
+            
+            // 勝利チェック
+            checkVictory();
+        }
+
+        // 新しいゲームを開始
+        function startNewGame() {
+            const seed = generateRandomSeed();
+            startNewGameWithSeed(seed);
+        }
+        
+        // 指定のシードでゲームを開始
+        function startNewGameWithSeed(seed) {
+            stopTimer();
+            gameActive = false;
+            document.getElementById('status').textContent = '数独を生成中...';
+            
+            // シードを保存して表示
+            currentSeed = seed;
+            document.getElementById('seed-input').value = seed;
+            
+            // 非同期で数独を生成（UIをブロックしないため）
+            setTimeout(() => {
+                // シードから乱数生成器を初期化
+                const rng = new SeededRandom(seed);
+                
+                // 完全に埋まった有効な数独を生成
+                generateCompleteSudoku(rng);
+                
+                // 解答を保存
+                copySolution();
+                
+                // 難易度に応じてセルを削除
+                removeCells(rng);
+                
+                // ユーザーグリッドの初期化
+                userGrid = grid.map(row => [...row]);
+                
+                // 固定セルの設定
+                fixedCells = grid.map(row => row.map(cell => cell !== 0));
+                
+                // グリッドを描画
+                renderGrid();
+                
+                // セルの選択解除
+                selectedCell = null;
+                
+                document.getElementById('status').textContent = `${getDifficultyText()}難易度の数独が生成されました。セルをクリックして数字を入力してください。`;
+            }, 0);
+        }
+
+        // 完全な数独の生成（シード付き）
+        function generateCompleteSudoku(rng) {
+            // グリッドをクリア
+            grid = Array(9).fill().map(() => Array(9).fill(0));
+            
+            // バックトラッキングで解く
+            solveSudoku(grid, rng);
+            
+            // 生成後にランダムに行、列、ブロックを入れ替えて多様性を持たせる
+            shuffleSudoku(rng);
+        }
+
+        // ソリューションのコピー
+        function copySolution() {
+            solution = grid.map(row => [...row]);
+        }
+
+        // 数独の解法（バックトラッキング）
+        function solveSudoku(board, rng) {
+            // 空のセルを見つける
+            const emptyCell = findEmptyCell(board);
+            
+            // 空のセルがなければ解決済み
+            if (!emptyCell) {
+                return true;
+            }
+            
+            const [row, col] = emptyCell;
+            
+            // 1-9の数字をランダムな順序で試す
+            const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+            const shuffledNums = seededShuffle(nums, rng);
+            
+            for (const num of shuffledNums) {
+                // 安全かどうか確認
+                if (isSafe(board, row, col, num)) {
+                    // 数字を試す
+                    board[row][col] = num;
+                    
+                    // 残りのグリッドを解いてみる
+                    if (solveSudoku(board, rng)) {
+                        return true;
+                    }
+                    
+                    // 解決できなければバックトラック
+                    board[row][col] = 0;
+                }
+            }
+            
+            return false;
+        }
+
+        // 空のセルを見つける
+        function findEmptyCell(board) {
+            for (let i = 0; i < 9; i++) {
+                for (let j = 0; j < 9; j++) {
+                    if (board[i][j] === 0) {
+                        return [i, j];
+                    }
+                }
+            }
+            return null;
+        }
+
+        // 安全かどうか確認（行、列、3x3ブロックに同じ数字がないか）
+        function isSafe(board, row, col, num) {
+            // 行チェック
+            for (let x = 0; x < 9; x++) {
+                if (board[row][x] === num) {
+                    return false;
+                }
+            }
+            
+            // 列チェック
+            for (let x = 0; x < 9; x++) {
+                if (board[x][col] === num) {
+                    return false;
+                }
+            }
+            
+            // 3x3ブロックチェック
+            const boxRow = Math.floor(row / 3) * 3;
+            const boxCol = Math.floor(col / 3) * 3;
+            
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    if (board[boxRow + i][boxCol + j] === num) {
+                        return false;
+                    }
+                }
+            }
+            
+            return true;
+        }
+
+        // 数独のシャッフル（行、列、ブロックを入れ替えて多様性を持たせる）
+        function shuffleSudoku(rng) {
+            // 同じブロック内の行を入れ替える
+            for (let block = 0; block < 3; block++) {
+                const base = block * 3;
+                for (let i = 0; i < 2; i++) {
+                    const r1 = base + rng.randomInt(0, 2);
+                    const r2 = base + rng.randomInt(0, 2);
+                    if (r1 !== r2) {
+                        [grid[r1], grid[r2]] = [grid[r2], grid[r1]];
+                    }
+                }
+            }
+            
+            // 同じブロック内の列を入れ替える
+            for (let block = 0; block < 3; block++) {
+                const base = block * 3;
+                for (let i = 0; i < 2; i++) {
+                    const c1 = base + rng.randomInt(0, 2);
+                    const c2 = base + rng.randomInt(0, 2);
+                    if (c1 !== c2) {
+                        for (let r = 0; r < 9; r++) {
+                            [grid[r][c1], grid[r][c2]] = [grid[r][c2], grid[r][c1]];
+                        }
+                    }
+                }
+            }
+        }
+
+        // セルの削除（難易度に応じて）
+        function removeCells(rng) {
+            // 難易度に応じた削除するセルの数
+            let cellsToRemove;
+            switch(difficulty) {
+                case 'easy':
+                    cellsToRemove = 40; // 約40セル削除
+                    break;
+                case 'medium':
+                    cellsToRemove = 50; // 約50セル削除
+                    break;
+                case 'hard':
+                    cellsToRemove = 60; // 約60セル削除
+                    break;
+                default:
+                    cellsToRemove = 50;
+            }
+            
+            // セルをランダムに削除
+            const positions = [];
+            for (let i = 0; i < 9; i++) {
+                for (let j = 0; j < 9; j++) {
+                    positions.push([i, j]);
+                }
+            }
+            
+            const shuffledPositions = seededShuffle(positions, rng);
+            
+            // 削除して一意解を確認
+            let removed = 0;
+            for (const [row, col] of shuffledPositions) {
+                const temp = grid[row][col];
+                grid[row][col] = 0;
+                
+                // 難しいパズルでは一意解チェックを省略（パフォーマンス向上のため）
+                if (difficulty === 'hard' || hasUniqueSolution()) {
+                    removed++;
+                    if (removed >= cellsToRemove) {
+                        break;
+                    }
+                } else {
+                    // 一意解でなければ戻す
+                    grid[row][col] = temp;
+                }
+                
+                // 簡単な難易度では、一意解チェックを10セルごとに行う（パフォーマンス向上）
+                if (difficulty === 'easy' && removed % 10 !== 0) {
+                    removed++;
+                    if (removed >= cellsToRemove) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 一意解を持つか確認（簡易版）
+        function hasUniqueSolution() {
+            // 簡易チェック：完全チェックは計算コストが高いため
+            // 実際には、2つの解を見つけようとするアプローチがより正確
+            
+            const tempGrid = grid.map(row => [...row]);
+            let count = 0;
+            
+            function countSolutions(board) {
+                if (count > 1) return false;
+                
+                const emptyCell = findEmptyCell(board);
+                if (!emptyCell) {
+                    count++;
+                    return count <= 1;
+                }
+                
+                const [row, col] = emptyCell;
+                
+                for (let num = 1; num <= 9; num++) {
+                    if (isSafe(board, row, col, num)) {
+                        board[row][col] = num;
+                        countSolutions(board);
+                        board[row][col] = 0;
+                    }
+                }
+                
+                return count <= 1;
+            }
+            
+            countSolutions(tempGrid);
+            return count === 1;
+        }
+
+        // 解答表示
+        function showSolution() {
+            stopTimer();
+            gameActive = false;
+            
+            userGrid = solution.map(row => [...row]);
+            
+            // グリッドを更新
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                const row = parseInt(cell.getAttribute('data-row'));
+                const col = parseInt(cell.getAttribute('data-col'));
+                
+                if (!fixedCells[row][col]) {
+                    cell.textContent = solution[row][col];
+                    cell.classList.remove('error');
+                }
+            });
+            
+            document.getElementById('status').textContent = '解答が表示されました。';
+        }
+
+        // ヒントを与える
+        function giveHint() {
+            // 空のセルまたは間違ったセルを検索
+            const emptyCells = [];
+            const errorCells = [];
+            
+            for (let i = 0; i < 9; i++) {
+                for (let j = 0; j < 9; j++) {
+                    if (!fixedCells[i][j]) {
+                        if (userGrid[i][j] === 0) {
+                            emptyCells.push([i, j]);
+                        } else if (userGrid[i][j] !== solution[i][j]) {
+                            errorCells.push([i, j]);
+                        }
+                    }
+                }
+            }
+            
+            // 優先的に間違ったセルを修正
+            let hintCell;
+            if (errorCells.length > 0) {
+                hintCell = errorCells[Math.floor(Math.random() * errorCells.length)];
+            } else if (emptyCells.length > 0) {
+                hintCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
+            } else {
+                document.getElementById('status').textContent = 'これ以上ヒントはありません。パズルは完成しています！';
+                return;
+            }
+            
+            const [row, col] = hintCell;
+            userGrid[row][col] = solution[row][col];
+            
+            // グリッドを更新
+            renderGrid();
+            
+            document.getElementById('status').textContent = `ヒント: (${row+1},${col+1})のセルに${solution[row][col]}を入れました。`;
+            
+            // 勝利チェック
+            checkVictory();
+        }
+
+        // 解答のチェック
+        function checkSolution() {
+            let isCorrect = true;
+            let emptyCells = 0;
+            
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                const row = parseInt(cell.getAttribute('data-row'));
+                const col = parseInt(cell.getAttribute('data-col'));
+                
+                if (!fixedCells[row][col]) {
+                    if (userGrid[row][col] === 0) {
+                        emptyCells++;
+                    } else if (userGrid[row][col] !== solution[row][col]) {
+                        cell.classList.add('error');
+                        isCorrect = false;
+                    } else {
+                        cell.classList.remove('error');
+                    }
+                }
+            });
+            
+            if (emptyCells > 0) {
+                document.getElementById('status').textContent = `まだ${emptyCells}個の空白のセルがあります。`;
+            } else if (isCorrect) {
+                showVictoryScreen();
+            } else {
+                document.getElementById('status').textContent = '間違いがあります。赤くマークされたセルをチェックしてください。';
+            }
+        }
+
+        // 勝利条件のチェック
+        function checkVictory() {
+            for (let i = 0; i < 9; i++) {
+                for (let j = 0; j < 9; j++) {
+                    if (userGrid[i][j] !== solution[i][j]) {
+                        return false;
+                    }
+                }
+            }
+            
+            // 勝利！
+            showVictoryScreen();
+            return true;
+        }
+        
+        // 勝利画面を表示
+        function showVictoryScreen() {
+            stopTimer();
+            gameActive = false;
+            
+            // 勝利統計を更新
+            document.getElementById('victory-stats').textContent = 
+                `難易度: ${getDifficultyText()}\nクリア時間: ${formatTime(seconds)}\nシード: ${currentSeed}`;
+            
+            // 勝利ポップアップを表示
+            document.getElementById('victory-container').style.display = 'flex';
+            
+            document.getElementById('status').textContent = '正解です！おめでとうございます！';
+        }
+    
+
+// 現在の盤面をJSONに変換してエクスポート
+function exportToJSON() {
+    const gameState = {
+        difficulty: difficulty,
+        grid: grid,
+        solution: solution,
+        userGrid: userGrid,
+        fixedCells: fixedCells,
+        timer: seconds
+    };
+    
+    const jsonString = JSON.stringify(gameState, null, 2);
+    document.getElementById('export-json').value = jsonString;
+    
+    document.getElementById('status').textContent = '現在の盤面がJSONとしてエクスポートされました。';
+}
+
+// JSONからインポート
+function importFromJSON() {
+    try {
+        const jsonString = document.getElementById('import-json').value.trim();
+        
+        if (!jsonString) {
+            document.getElementById('status').textContent = 'インポートするJSONを入力してください。';
+            return;
+        }
+        
+        const gameState = JSON.parse(jsonString);
+        
+        // ゲーム状態を復元
+        difficulty = gameState.difficulty || 'medium';
+        grid = gameState.grid || Array(9).fill().map(() => Array(9).fill(0));
+        solution = gameState.solution || Array(9).fill().map(() => Array(9).fill(0));
+        userGrid = gameState.userGrid || Array(9).fill().map(() => Array(9).fill(0));
+        fixedCells = gameState.fixedCells || Array(9).fill().map(() => Array(9).fill(false));
+        
+        // タイマーを設定
+        seconds = gameState.timer || 0;
+        updateTimerDisplay();
+        
+        // グリッドを描画
+        renderGrid();
+        
+        // 選択解除
+        selectedCell = null;
+        
+        document.getElementById('status').textContent = 'JSONから盤面がインポートされました。';
+        
+    } catch (error) {
+        document.getElementById('status').textContent = `インポートエラー: ${error.message}`;
+    }
+}
+    </script>
+</body>
+</html>
