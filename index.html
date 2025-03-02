@@ -1383,7 +1383,7 @@ function evaluateBacktrackDepth(grid, solution) {
 // バックトラックの深さをシミュレート（簡易版）
 function simulateBacktrackDepth(grid, startRow, startCol, solution) {
     // 簡易実装（実際はもっと複雑になる）
-    // ここでは0〜5のランダムな深さを返す
+    // ここでは0?5のランダムな深さを返す
     return Math.floor(Math.random() * 6);
 }
 
@@ -1395,10 +1395,10 @@ function calculateOverallScore(emptyCount, distributionScore, techniqueScore, ba
     const techniqueWeight = 0.4;
     const backtrackWeight = 0.3;
     
-    // 空白セル数は30〜65の範囲で正規化
+    // 空白セル数は30?65の範囲で正規化
     const normalizedEmpty = Math.min(1, Math.max(0, (emptyCount - 30) / 35));
     
-    // バックトラック深さは0〜5の範囲で正規化
+    // バックトラック深さは0?5の範囲で正規化
     const normalizedBacktrack = Math.min(1, Math.max(0, backtrackDepth / 5));
     
     // 総合スコア（0-100）
