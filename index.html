@@ -446,6 +446,25 @@
                 });
             });
             
+            document.addEventListener('keydown', (e) => {
+                if (!selectedCell) return; // セルが選択されていない場合は無視
+
+                let num;
+                // 1～9の数字キーで入力
+                if (e.key >= '1' && e.key <= '9') {
+                    num = parseInt(e.key);
+                } 
+                // 0、Backspace、Deleteキーで消去
+                else if (e.key === '0' || e.key === 'Backspace' || e.key === 'Delete') {
+                    num = 0;
+                }
+                
+                if (num !== undefined) {
+                    e.preventDefault(); // ブラウザのデフォルト動作を防止
+                    enterNumber(num);
+                }
+            });
+
             // 初期グリッドの描画
             renderGrid();
         });
