@@ -3,55 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>数独ゲーム</title>
+    <title>数独ゲーム - Pro Edition</title>
     <style>
+        /* ベーススタイル */
         body {
-            font-family: 'Arial', sans-serif;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
             padding: 20px;
-            background-color: #f5f5f5;
-        }
-        h1 {
-            margin-bottom: 20px;
+            background-color: #f0f2f5;
             color: #333;
+            margin: 0;
         }
-        .controls {
-            margin-bottom: 20px;
+
+        /* 広告枠スタイル（仮のプレースホルダー） */
+        .ad-space {
+            width: 100%;
+            max-width: 728px; /* 一般的なバナー幅 */
+            height: 90px;
+            background-color: #e0e0e0;
             display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        .difficulty-selector {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-        .seed-controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
             justify-content: center;
             align-items: center;
+            margin-bottom: 20px;
+            border: 1px dashed #aaa;
+            color: #666;
+            font-size: 14px;
         }
+        
+        .ad-space.victory-ad {
+            margin: 20px 0;
+            height: 250px; /* レクタングル広告用 */
+            background-color: #eee;
+        }
+
+        h1 { margin-bottom: 10px; color: #2c3e50; }
+
+        .controls, .difficulty-selector, .seed-controls {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* 入力周りのスタイル調整 */
         .seed-controls input {
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            width: 150px;
+            width: 120px;
         }
+
+        /* 盤面デザイン */
         .sudoku-grid {
             display: grid;
             grid-template-columns: repeat(9, 40px);
             grid-template-rows: repeat(9, 40px);
             gap: 0;
-            border: 3px solid #000;
+            border: 3px solid #333;
             margin-bottom: 20px;
+            background-color: #333; /* グリッド線の色 */
             position: relative;
         }
 
@@ -64,1421 +77,768 @@
             font-size: 20px;
             background-color: #fff;
             cursor: pointer;
-            transition: background-color 0.3s;
             user-select: none;
-            border: 1px solid #ccc;
+            border: 1px solid #ccc; /* 細い線 */
+            box-sizing: border-box; /* ボーダーをサイズに含める */
         }
 
-        /* 垂直線の太線 */
-        .sudoku-grid::before {
-            content: "";
-            position: absolute;
-            width: 100%;
-            height: 100%;
+        /* 3x3の太線区切り（CSS Gridのnth-childで制御） */
+        .cell:nth-child(3n) { border-right: 2px solid #333; }
+        .cell:nth-child(9n) { border-right: none; } /* 右端のリセット */
+        .cell:nth-child(n+19):nth-child(-n+27),
+        .cell:nth-child(n+46):nth-child(-n+54) { border-bottom: 2px solid #333; }
+
+        /* 修正: グリッドのborder処理をシンプルかつ確実に */
+        .sudoku-grid .cell {
+            border-right: 1px solid #ccc;
+            border-bottom: 1px solid #ccc;
+        }
+        /* 3列ごとの右ボーダー */
+        .sudoku-grid .cell:nth-child(3n) { border-right: 2px solid #333; }
+        .sudoku-grid .cell:nth-child(9n) { border-right: 1px solid #ccc; }
+        /* 3行ごとの下ボーダー */
+        .sudoku-grid {
+            border-bottom: 2px solid #333; /* 全体の下枠 */
+        }
+        /* 行ごとの特定（Grid配置依存のためJSでクラス付与の方が確実だが簡易CSSで対応） */
+        /* ※今回は視認性確保のため、元の疑似要素アプローチからシンプルなボーダーへ変更推奨 */
+        
+        .cell.fixed { font-weight: bold; background-color: #eaeaea; color: #000; cursor: default; }
+        .cell.selected { background-color: #bbdefb; }
+        .cell.error { color: #e74c3c; background-color: #fadbd8; }
+        .cell.same-number { background-color: #e3f2fd; }
+        .cell.conflict { background-color: #ffe0e0; }
+
+        body.paused #sudoku-grid {
             pointer-events: none;
-            z-index: 2;
-            background-image: 
-                linear-gradient(to right, transparent, transparent 119px, #000 119px, #000 123px, transparent 123px, transparent),
-                linear-gradient(to right, transparent, transparent 239px, #000 239px, #000 243px, transparent 243px, transparent);
+            opacity: 0.6;
         }
 
-        /* 水平線の太線 */
-        .sudoku-grid::after {
-            content: "";
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 2;
-            background-image: 
-                linear-gradient(to bottom, transparent, transparent 119px, #000 119px, #000 123px, transparent 123px, transparent),
-                linear-gradient(to bottom, transparent, transparent 239px, #000 239px, #000 243px, transparent 243px, transparent);
-        }
-        .cell.fixed {
+        body.paused .info #status::after {
+            content: '（一時停止中）';
+            margin-left: 6px;
+            color: #c62828;
             font-weight: bold;
-            background-color: #f0f0f0;
-            cursor: not-allowed;
         }
-        .cell.selected {
-            background-color: #d4e9ff;
-        }
-        .cell.error {
-            color: #ff0000;
-        }
-        .cell.same-number {
-            background-color: #e6f3ff;
-        }
-        /* Enhanced 3x3 borders */
-        .box-border-right {
-            border-right: 3px solid #000;
-        }
-        .box-border-bottom {
-            border-bottom: 3px solid #000;
-        }
+
+        /* ナンバーパッド */
         .number-pad {
             display: grid;
-            grid-template-columns: repeat(5, 40px);
-            gap: 5px;
-            margin: 20px 0;
+            grid-template-columns: repeat(5, 50px);
+            gap: 8px;
+            margin: 10px 0;
         }
+
         .number {
-            width: 40px;
-            height: 40px;
+            width: 50px;
+            height: 50px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 20px;
+            font-size: 22px;
             background-color: #4CAF50;
             color: white;
-            border-radius: 50%;
+            border-radius: 8px;
             cursor: pointer;
             user-select: none;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
-        .number:hover {
-            background-color: #45a049;
-        }
-        .erase {
-            grid-column: span 5;
-            background-color: #f44336;
-        }
-        .timer {
-            font-size: 24px;
-            margin-bottom: 15px;
-        }
+        .number:active { transform: translateY(2px); }
+        .number.erase { grid-column: span 5; background-color: #f44336; width: 100%; }
+
+        /* ボタン類 */
         button {
-            padding: 10px 15px;
-            font-size: 16px;
+            padding: 8px 16px;
+            font-size: 14px;
             cursor: pointer;
-            background-color: #4CAF50;
+            background-color: #2196F3;
             color: white;
             border: none;
             border-radius: 4px;
-            transition: background-color 0.3s;
+            transition: 0.2s;
         }
-        button:hover {
-            background-color: #45a049;
-        }
-        .info {
-            margin-top: 20px;
+        button:hover { opacity: 0.9; }
+        button.active { background-color: #0d47a1; font-weight: bold; }
+
+        /* 分析結果エリア */
+        .analysis-results {
+            margin-top: 15px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            background-color: #fff;
+            width: 100%;
             max-width: 600px;
-            text-align: center;
+            border-radius: 8px;
         }
-        /* Enhanced victory display */
+
+        /* 勝利モーダル */
         .victory-container {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
             z-index: 100;
             justify-content: center;
             align-items: center;
         }
         .victory-message {
             background-color: white;
-            padding: 40px;
-            border-radius: 10px;
+            padding: 30px;
+            border-radius: 12px;
             text-align: center;
-            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-            animation: victory-pop 0.5s ease-out;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
         }
-        .victory-title {
-            font-size: 36px;
-            color: #4CAF50;
-            margin-bottom: 20px;
-        }
-        .victory-stats {
-            font-size: 18px;
-            margin-bottom: 30px;
-        }
-        .victory-button {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            font-size: 18px;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        @keyframes victory-pop {
-            0% { transform: scale(0.5); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-        /* Tooltip for seed copy */
-        .tooltip {
-            position: relative;
-            display: inline-block;
-        }
-        .tooltip .tooltiptext {
-            visibility: hidden;
-            width: 140px;
-            background-color: #555;
-            color: #fff;
-            text-align: center;
-            border-radius: 6px;
-            padding: 5px;
-            position: absolute;
-            z-index: 1;
-            bottom: 150%;
-            left: 50%;
-            margin-left: -70px;
-            opacity: 0;
-            transition: opacity 0.3s;
-        }
-        .tooltip .tooltiptext.show {
-            visibility: visible;
-            opacity: 1;
-        }
+        .victory-title { font-size: 28px; color: #4CAF50; margin-bottom: 15px; font-weight: bold; }
 
-        /* JSONインポート/エクスポート用のスタイル */
-        .json-container {
-            width: 100%;
-            max-width: 600px;
-            margin: 20px auto;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
+        /* レスポンシブ対応 */
+        @media (max-width: 500px) {
+            .sudoku-grid {
+                grid-template-columns: repeat(9, 35px);
+                grid-template-rows: repeat(9, 35px);
+            }
+            .cell { width: 35px; height: 35px; font-size: 18px; }
+            .number { width: 40px; height: 40px; font-size: 18px; }
+            .number-pad { grid-template-columns: repeat(5, 40px); }
         }
-        .json-row {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-        textarea {
-            width: 100%;
-            min-height: 100px;
-            padding: 10px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            font-family: monospace;
-            resize: vertical;
-        }
-        .json-button {
-            background-color: #2196F3;
-        }
-        .json-button:hover {
-            background-color: #0b7dda;
-        }
-
-        .difficulty-analysis {
-    margin: 20px 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-}
-
-.analysis-results {
-    margin-top: 15px;
-    padding: 15px;
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    background-color: #f9f9f9;
-    width: 100%;
-    max-width: 600px;
-}
-
-.analysis-metric {
-    margin-bottom: 10px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #eee;
-}
-
-.analysis-metric h4 {
-    margin: 5px 0;
-    color: #333;
-}
-
-.analysis-metric p {
-    margin: 5px 0;
-}
-
-.difficulty-score {
-    font-weight: bold;
-    font-size: 1.1em;
-}
-
-.difficulty-easy { color: #4CAF50; }
-.difficulty-medium { color: #2196F3; }
-.difficulty-hard { color: #FF9800; }
-.difficulty-extreme { color: #F44336; }
-        
     </style>
 </head>
 <body>
-    <h1>数独ゲーム</h1>
+
+    <div class="ad-space">
+        <p>スポンサー広告 (Google AdSense)</p>
+    </div>
+
+    <h1>数独ゲーム Pro</h1>
     
-    <div id="timer" class="timer">00:00</div>
+    <div id="timer" class="timer" style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">00:00</div>
     
     <div class="difficulty-selector">
-        <label>難易度:</label>
         <button id="easy">簡単</button>
-        <button id="medium">中級</button>
+        <button id="medium" class="active">中級</button>
         <button id="hard">難しい</button>
+        <button id="analyze-difficulty" style="background-color: #9C27B0;">盤面分析</button>
     </div>
 
-    <div class="difficulty-analysis">
-        <button id="analyze-difficulty">パズル難易度を分析</button>
-        <div id="analysis-results" class="analysis-results" style="display: none;">
-            <h3>難易度分析結果</h3>
-            <div id="analysis-content"></div>
-        </div>
-    </div>    
-    
+    <div id="analysis-results" class="analysis-results" style="display: none;">
+        <h3>📊 盤面分析レポート</h3>
+        <div id="analysis-content"></div>
+    </div>
+
     <div class="seed-controls">
-        <label>シード:</label>
-        <input type="text" id="seed-input" placeholder="シードを入力">
-        <button id="use-seed">このシードで生成</button>
-        <div class="tooltip">
-            <button id="copy-seed">現在のシードをコピー</button>
-            <span class="tooltiptext" id="copy-tooltip">コピーしました！</span>
-        </div>
+        <input type="text" id="seed-input" placeholder="Seed値">
+        <button id="use-seed" style="background-color: #607D8B;">生成</button>
+        <button id="copy-seed" style="background-color: #607D8B;">コピー</button>
     </div>
     
-    <!-- JSONインポート/エクスポート機能を追加 -->
-    <div class="json-container">
-        <h3>JSON インポート/エクスポート</h3>
-        <div>
-            <label for="export-json">盤面をエクスポート:</label>
-            <div class="json-row">
-                <textarea id="export-json" readonly placeholder="「エクスポート」ボタンをクリックすると、現在の盤面のJSONがここに表示されます"></textarea>
-                <button id="export" class="json-button">エクスポート</button>
-            </div>
-        </div>
-        <div>
-            <label for="import-json">盤面をインポート:</label>
-            <div class="json-row">
-                <textarea id="import-json" placeholder="インポートするJSONをここに貼り付けてください"></textarea>
-                <button id="import" class="json-button">インポート</button>
-            </div>
-        </div>
-    </div>
-
     <div class="controls">
-        <button id="generate">新しい数独を生成</button>
-        <button id="check">チェック</button>
-        <button id="hint">ヒント</button>
-        <button id="solve">解く</button>
+        <button id="generate" style="background-color: #E91E63;">新規ゲーム</button>
+        <button id="check" style="background-color: #FF9800;">チェック</button>
+        <button id="hint" style="background-color: #009688;">ヒント</button>
+        <button id="pause" style="background-color: #795548;">一時停止</button>
     </div>
     
     <div id="sudoku-grid" class="sudoku-grid"></div>
     
     <div id="number-pad" class="number-pad">
-        <div class="number" data-number="1">1</div>
-        <div class="number" data-number="2">2</div>
-        <div class="number" data-number="3">3</div>
-        <div class="number" data-number="4">4</div>
-        <div class="number" data-number="5">5</div>
-        <div class="number" data-number="6">6</div>
-        <div class="number" data-number="7">7</div>
-        <div class="number" data-number="8">8</div>
-        <div class="number" data-number="9">9</div>
-        <div class="number erase" data-number="0">消去</div>
     </div>
     
     <div class="info">
-        <p id="status">「新しい数独を生成」ボタンをクリックして開始してください。</p>
+        <p id="status">ゲームを開始してください</p>
     </div>
-    
-    <!-- Victory popup -->
+
     <div id="victory-container" class="victory-container">
         <div class="victory-message">
-            <div class="victory-title">クリア！おめでとうございます！</div>
-            <div class="victory-stats" id="victory-stats">クリア時間: 00:00</div>
-            <button class="victory-button" id="victory-close">閉じる</button>
+            <div class="victory-title">🎉 CLEAR! 🎉</div>
+            <div class="victory-stats" id="victory-stats" style="margin-bottom: 15px; line-height: 1.6;"></div>
+            
+            <div class="ad-space victory-ad">
+                <p>お疲れ様でした！<br>広告表示エリア</p>
+            </div>
+
+            <button class="victory-button" id="victory-close" style="width: 100%; padding: 15px; font-size: 18px;">閉じる</button>
         </div>
     </div>
 
     <script>
-        // グローバル変数
+        // ==========================================
+        //  Core Logic & State
+        // ==========================================
         let grid = Array(9).fill().map(() => Array(9).fill(0));
         let solution = Array(9).fill().map(() => Array(9).fill(0));
         let userGrid = Array(9).fill().map(() => Array(9).fill(0));
         let fixedCells = Array(9).fill().map(() => Array(9).fill(false));
-        let difficulty = 'medium'; // デフォルトの難易度
+        let difficulty = 'medium';
         let selectedCell = null;
         let timer = null;
         let seconds = 0;
-        let gameActive = false;
         let currentSeed = null;
+        let paused = false;
 
-        // DOMが読み込まれた後に実行
+        const STORAGE_KEY = 'sudoku-pro-state-v2';
+
+        // ==========================================
+        //  Event Listeners
+        // ==========================================
         document.addEventListener('DOMContentLoaded', () => {
-            // 難易度選択ボタンのイベントリスナー
+            // Buttons
             document.getElementById('easy').addEventListener('click', () => setDifficulty('easy'));
             document.getElementById('medium').addEventListener('click', () => setDifficulty('medium'));
             document.getElementById('hard').addEventListener('click', () => setDifficulty('hard'));
-            
-            // 難易度分析ボタンのイベントリスナー
             document.getElementById('analyze-difficulty').addEventListener('click', analyzeDifficulty);
-
-            // シード関連のイベントリスナー
             document.getElementById('use-seed').addEventListener('click', useSeedFromInput);
             document.getElementById('copy-seed').addEventListener('click', copyCurrentSeed);
-            
-            //JSON入出力
-            document.getElementById('export').addEventListener('click', exportToJSON);
-            document.getElementById('import').addEventListener('click', importFromJSON);
-
-            // 操作ボタンのイベントリスナー
             document.getElementById('generate').addEventListener('click', startNewGame);
             document.getElementById('check').addEventListener('click', checkSolution);
             document.getElementById('hint').addEventListener('click', giveHint);
-            document.getElementById('solve').addEventListener('click', showSolution);
-            
-            // 勝利ポップアップの閉じるボタン
+            document.getElementById('pause').addEventListener('click', togglePause);
             document.getElementById('victory-close').addEventListener('click', () => {
                 document.getElementById('victory-container').style.display = 'none';
             });
-            
-            // 数字パッドのイベントリスナー
-            document.querySelectorAll('.number').forEach(numButton => {
-                numButton.addEventListener('click', () => {
-                    if (selectedCell && !gameActive) {
-                        // ゲーム開始
-                        startTimer();
-                        gameActive = true;
-                    }
-                    
-                    const number = parseInt(numButton.getAttribute('data-number'));
-                    enterNumber(number);
-                });
-            });
-            
+
+            // Number Pad Generation
+            const numPad = document.getElementById('number-pad');
+            for(let i=1; i<=9; i++){
+                const div = document.createElement('div');
+                div.className = 'number';
+                div.textContent = i;
+                div.dataset.number = i;
+                div.onclick = () => handleInput(i);
+                numPad.appendChild(div);
+            }
+            // Erase Button
+            const eraseBtn = document.createElement('div');
+            eraseBtn.className = 'number erase';
+            eraseBtn.textContent = '消去';
+            eraseBtn.onclick = () => handleInput(0);
+            numPad.appendChild(eraseBtn);
+
+            // Keyboard Input
             document.addEventListener('keydown', (e) => {
-                if (!selectedCell) return; // セルが選択されていない場合は無視
-
-                let num;
-                // 1～9の数字キーで入力
-                if (e.key >= '1' && e.key <= '9') {
-                    num = parseInt(e.key);
-                } 
-                // 0、Backspace、Deleteキーで消去
-                else if (e.key === '0' || e.key === 'Backspace' || e.key === 'Delete') {
-                    num = 0;
-                }
-                
-                if (num !== undefined) {
-                    e.preventDefault(); // ブラウザのデフォルト動作を防止
-                    enterNumber(num);
-                }
+                if (!selectedCell) return;
+                if (paused) return;
+                if (e.key >= '1' && e.key <= '9') handleInput(parseInt(e.key));
+                if (e.key === '0' || e.key === 'Backspace' || e.key === 'Delete') handleInput(0);
             });
 
-            // 初期グリッドの描画
+            // Initial Render
             renderGrid();
+            if (!loadSavedGame()) {
+                startNewGame(); // 自動スタート
+            }
         });
 
-        // シード関連の機能
-        function generateRandomSeed() {
-            return Math.floor(Math.random() * 1000000000).toString();
-        }
-        
-        function useSeedFromInput() {
-            const seedInput = document.getElementById('seed-input');
-            let seed = seedInput.value.trim();
+        function handleInput(num) {
+            if (!selectedCell) return;
+            if (paused) return;
+            if (!gameActive()) startTimer(); // 初回入力でタイマースタート
+
+            const r = parseInt(selectedCell.dataset.row);
+            const c = parseInt(selectedCell.dataset.col);
+            if (fixedCells[r][c]) return;
+
+            userGrid[r][c] = num;
             
-            if (!seed) {
-                seed = generateRandomSeed();
-                seedInput.value = seed;
-            }
-            
-            startNewGameWithSeed(seed);
+            // UI更新
+            selectedCell.textContent = num === 0 ? '' : num;
+            selectedCell.classList.remove('error');
+            if (num !== 0 && num !== solution[r][c]) selectedCell.classList.add('error');
+
+            highlightSameNumbers(num);
+            updateConflicts();
+            checkVictory();
+            saveState();
         }
-        
-        function copyCurrentSeed() {
-            if (!currentSeed) {
-                alert('まだシードが生成されていません。数独を生成してから試してください。');
-                return;
-            }
-            
-            navigator.clipboard.writeText(currentSeed).then(() => {
-                // ツールチップを表示
-                const tooltip = document.getElementById('copy-tooltip');
-                tooltip.classList.add('show');
-                setTimeout(() => {
-                    tooltip.classList.remove('show');
-                }, 2000);
-            });
+
+        function gameActive() {
+            return timer !== null;
         }
+
+        // ==========================================
+        //  Sudoku Generator (The Important Part)
+        // ==========================================
         
-        // 乱数生成器（シードから一貫した乱数を生成）
         class SeededRandom {
             constructor(seed) {
                 this.seed = this.hash(seed);
             }
-            
-            // 簡易なハッシュ関数
             hash(seed) {
                 let str = seed.toString();
                 let hash = 0;
                 for (let i = 0; i < str.length; i++) {
-                    let char = str.charCodeAt(i);
-                    hash = ((hash << 5) - hash) + char;
-                    hash = hash & hash; // 32bit整数に変換
+                    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+                    hash |= 0; 
                 }
                 return Math.abs(hash);
             }
-            
-            // 0-1の範囲で乱数を生成
             random() {
                 const x = Math.sin(this.seed++) * 10000;
                 return x - Math.floor(x);
             }
-            
-            // 範囲を指定して整数の乱数を生成
             randomInt(min, max) {
                 return Math.floor(this.random() * (max - min + 1)) + min;
             }
         }
-        
-        // シードを使った配列のシャッフル
-        function seededShuffle(array, random) {
-            const newArray = [...array];
-            for (let i = newArray.length - 1; i > 0; i--) {
-                const j = Math.floor(random.random() * (i + 1));
-                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
-            }
-            return newArray;
-        }
 
-        // 難易度の設定
-        function setDifficulty(level) {
-            difficulty = level;
-            document.getElementById('status').textContent = `難易度が${getDifficultyText()}に設定されました。`;
-        }
-
-        // 難易度のテキストを取得
-        function getDifficultyText() {
-            switch(difficulty) {
-                case 'easy': return '簡単';
-                case 'medium': return '中級';
-                case 'hard': return '難しい';
-                default: return '中級';
-            }
-        }
-
-        // タイマー開始
-        function startTimer() {
-            // 既存のタイマーをクリア
-            if (timer) {
-                clearInterval(timer);
-            }
-            
-            seconds = 0;
-            updateTimerDisplay();
-            
-            timer = setInterval(() => {
-                seconds++;
-                updateTimerDisplay();
-            }, 1000);
-        }
-
-        // タイマー停止
-        function stopTimer() {
-            if (timer) {
-                clearInterval(timer);
-                timer = null;
-            }
-        }
-
-        // タイマー表示更新
-        function updateTimerDisplay() {
-            const minutes = Math.floor(seconds / 60);
-            const remainingSeconds = seconds % 60;
-            document.getElementById('timer').textContent = 
-                `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
-        }
-
-        // タイマーの時間をフォーマット
-        function formatTime(totalSeconds) {
-            const minutes = Math.floor(totalSeconds / 60);
-            const seconds = totalSeconds % 60;
-            return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-        }
-
-    
-        // グリッドの描画
-        // グリッドの描画
-        function renderGrid() {
-            const gridContainer = document.getElementById('sudoku-grid');
-            gridContainer.innerHTML = '';
-            
-            // セルを追加
-            for (let i = 0; i < 9; i++) {
-                for (let j = 0; j < 9; j++) {
-                    const cell = document.createElement('div');
-                    cell.className = 'cell';
-                    
-                    if (fixedCells[i][j]) {
-                        cell.textContent = grid[i][j];
-                        cell.classList.add('fixed');
-                    } else if (userGrid[i][j] !== 0) {
-                        cell.textContent = userGrid[i][j];
-                    }
-                    
-                    // セルのデータ属性を設定
-                    cell.setAttribute('data-row', i);
-                    cell.setAttribute('data-col', j);
-                    
-                    // セルのクリックイベント
-                    cell.addEventListener('click', () => selectCell(cell, i, j));
-                    
-                    gridContainer.appendChild(cell);
-                }
-            }
-        }
-        // セルの選択
-        function selectCell(cell, row, col) {
-            // 固定セルは選択できない
-            if (fixedCells[row][col]) {
-                return;
-            }
-            
-            // 以前に選択したセルの選択解除
-            if (selectedCell) {
-                selectedCell.classList.remove('selected');
-            }
-            
-            // 同じ数字を持つセルのハイライトを解除
-            document.querySelectorAll('.same-number').forEach(c => {
-                c.classList.remove('same-number');
-            });
-            
-            // 新しいセルを選択
-            selectedCell = cell;
-            cell.classList.add('selected');
-            
-            // 同じ数字を持つセルをハイライト
-            const number = userGrid[row][col];
-            if (number !== 0) {
-                highlightSameNumbers(number);
-            }
-        }
-
-        // 同じ数字をハイライト
-        function highlightSameNumbers(number) {
-            const cells = document.querySelectorAll('.cell');
-            cells.forEach(cell => {
-                const r = parseInt(cell.getAttribute('data-row'));
-                const c = parseInt(cell.getAttribute('data-col'));
-                
-                if ((fixedCells[r][c] && grid[r][c] === number) || 
-                    (!fixedCells[r][c] && userGrid[r][c] === number)) {
-                    cell.classList.add('same-number');
-                }
-            });
-        }
-
-        // 数字の入力
-        function enterNumber(number) {
-            if (!selectedCell) return;
-            
-            const row = parseInt(selectedCell.getAttribute('data-row'));
-            const col = parseInt(selectedCell.getAttribute('data-col'));
-            
-            // 固定セルは変更できない
-            if (fixedCells[row][col]) return;
-            
-            userGrid[row][col] = number;
-            
-            // エラーチェック
-            const isError = number !== 0 && number !== solution[row][col];
-            
-            // セルの表示更新
-            selectedCell.textContent = number === 0 ? '' : number;
-            selectedCell.classList.remove('error');
-            
-            if (isError) {
-                selectedCell.classList.add('error');
-            }
-            
-            // 同じ数字のハイライト更新
-            document.querySelectorAll('.same-number').forEach(c => {
-                c.classList.remove('same-number');
-            });
-            
-            if (number !== 0) {
-                highlightSameNumbers(number);
-            }
-            
-            // 勝利チェック
-            checkVictory();
-        }
-
-        // 新しいゲームを開始
         function startNewGame() {
-            const seed = generateRandomSeed();
+            const seed = Math.floor(Math.random() * 1000000000).toString();
             startNewGameWithSeed(seed);
         }
-        
-        // 指定のシードでゲームを開始
+
         function startNewGameWithSeed(seed) {
             stopTimer();
-            gameActive = false;
-            document.getElementById('status').textContent = '数独を生成中...';
-            
-            // シードを保存して表示
-            currentSeed = seed;
+            document.getElementById('status').textContent = '生成中...';
             document.getElementById('seed-input').value = seed;
-            
-            // 非同期で数独を生成（UIをブロックしないため）
+            currentSeed = seed;
+            paused = false;
+            document.body.classList.remove('paused');
+            document.getElementById('pause').textContent = '一時停止';
+
+            // UIブロック回避のためsetTimeout
             setTimeout(() => {
-                // シードから乱数生成器を初期化
                 const rng = new SeededRandom(seed);
                 
-                // 完全に埋まった有効な数独を生成
-                generateCompleteSudoku(rng);
+                // 1. 完全な盤面を作成
+                grid = Array(9).fill().map(() => Array(9).fill(0));
+                solveSudoku(grid, rng); // バックトラッキングで埋める
                 
-                // 解答を保存
-                copySolution();
+                // 2. シャッフル（ランダム性向上）
+                shuffleSudoku(rng);
                 
-                // 難易度に応じてセルを削除
+                // 3. 解答を保持
+                solution = grid.map(row => [...row]);
+
+                // 4. 穴あけ（ここが修正ポイント！）
                 removeCells(rng);
-                
-                // ユーザーグリッドの初期化
+
+                // 5. 初期化
                 userGrid = grid.map(row => [...row]);
-                
-                // 固定セルの設定
                 fixedCells = grid.map(row => row.map(cell => cell !== 0));
-                
-                // グリッドを描画
-                renderGrid();
-                
-                // セルの選択解除
                 selectedCell = null;
-                
-                document.getElementById('status').textContent = `${getDifficultyText()}難易度の数独が生成されました。セルをクリックして数字を入力してください。`;
-            }, 0);
+                renderGrid();
+                seconds = 0;
+                updateTimerDisplay();
+                document.getElementById('status').textContent = `スタート！ (Seed: ${seed})`;
+                document.getElementById('analysis-results').style.display = 'none';
+                saveState();
+            }, 10);
         }
 
-        // 完全な数独の生成（シード付き）
-        function generateCompleteSudoku(rng) {
-            // グリッドをクリア
-            grid = Array(9).fill().map(() => Array(9).fill(0));
-            
-            // バックトラッキングで解く
-            solveSudoku(grid, rng);
-            
-            // 生成後にランダムに行、列、ブロックを入れ替えて多様性を持たせる
-            shuffleSudoku(rng);
-        }
+        // 再帰的バックトラッキング
+        function solveSudoku(board, rng = null) {
+            const empty = findEmpty(board);
+            if (!empty) return true;
+            const [r, c] = empty;
 
-        // ソリューションのコピー
-        function copySolution() {
-            solution = grid.map(row => [...row]);
-        }
+            let nums = [1,2,3,4,5,6,7,8,9];
+            if (rng) nums = seededShuffle(nums, rng);
 
-        // 数独の解法（バックトラッキング）
-        function solveSudoku(board, rng) {
-            // 空のセルを見つける
-            const emptyCell = findEmptyCell(board);
-            
-            // 空のセルがなければ解決済み
-            if (!emptyCell) {
-                return true;
-            }
-            
-            const [row, col] = emptyCell;
-            
-            // 1-9の数字をランダムな順序で試す
-            const nums = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-            const shuffledNums = seededShuffle(nums, rng);
-            
-            for (const num of shuffledNums) {
-                // 安全かどうか確認
-                if (isSafe(board, row, col, num)) {
-                    // 数字を試す
-                    board[row][col] = num;
-                    
-                    // 残りのグリッドを解いてみる
-                    if (solveSudoku(board, rng)) {
-                        return true;
-                    }
-                    
-                    // 解決できなければバックトラック
-                    board[row][col] = 0;
+            for (let n of nums) {
+                if (isSafe(board, r, c, n)) {
+                    board[r][c] = n;
+                    if (solveSudoku(board, rng)) return true;
+                    board[r][c] = 0;
                 }
             }
-            
             return false;
         }
 
-        // 空のセルを見つける
-        function findEmptyCell(board) {
-            for (let i = 0; i < 9; i++) {
-                for (let j = 0; j < 9; j++) {
-                    if (board[i][j] === 0) {
-                        return [i, j];
+        // ★重要修正★: Hardモードでも一意解を保証する
+        function removeCells(rng) {
+            let cellsToRemove = 40;
+            if(difficulty === 'medium') cellsToRemove = 50;
+            if(difficulty === 'hard') cellsToRemove = 58; // 限界に近い数
+
+            const positions = [];
+            for(let r=0; r<9; r++) for(let c=0; c<9; c++) positions.push([r,c]);
+            const shuffled = seededShuffle(positions, rng);
+
+            let removedCount = 0;
+            
+            for (let [r, c] of shuffled) {
+                if (removedCount >= cellsToRemove) break;
+
+                let backup = grid[r][c];
+                grid[r][c] = 0;
+
+                // 【修正】難易度に関わらず必ずチェックする！
+                // これで「解が複数ある（解けない）」バグを防ぐ
+                if (hasUniqueSolution(grid)) {
+                    removedCount++;
+                } else {
+                    grid[r][c] = backup; // 戻す
+                }
+            }
+        }
+
+        // 解の数を数える（2つ以上あったら即打ち切り）
+        function hasUniqueSolution(board) {
+            let solutions = 0;
+            function count(bd) {
+                if (solutions > 1) return; // 2つ見つかったら終了（高速化）
+                
+                const empty = findEmpty(bd);
+                if (!empty) {
+                    solutions++;
+                    return;
+                }
+                const [r, c] = empty;
+                for (let n = 1; n <= 9; n++) {
+                    if (isSafe(bd, r, c, n)) {
+                        bd[r][c] = n;
+                        count(bd);
+                        bd[r][c] = 0;
                     }
                 }
             }
+            
+            // コピーを渡して破壊を防ぐ
+            const boardCopy = board.map(row => [...row]);
+            count(boardCopy);
+            return solutions === 1;
+        }
+
+        // ==========================================
+        //  Helpers & Utilities
+        // ==========================================
+        function findEmpty(board) {
+            for(let r=0; r<9; r++) for(let c=0; c<9; c++) if(board[r][c]===0) return [r,c];
             return null;
         }
 
-        // 安全かどうか確認（行、列、3x3ブロックに同じ数字がないか）
-        function isSafe(board, row, col, num) {
-            // 行チェック
-            for (let x = 0; x < 9; x++) {
-                if (board[row][x] === num) {
-                    return false;
-                }
+        function isSafe(board, r, c, n) {
+            for(let i=0; i<9; i++) {
+                if(board[r][i] === n) return false;
+                if(board[i][c] === n) return false;
             }
-            
-            // 列チェック
-            for (let x = 0; x < 9; x++) {
-                if (board[x][col] === num) {
-                    return false;
-                }
+            const br = Math.floor(r/3)*3;
+            const bc = Math.floor(c/3)*3;
+            for(let i=0; i<3; i++) for(let j=0; j<3; j++) {
+                if(board[br+i][bc+j] === n) return false;
             }
-            
-            // 3x3ブロックチェック
-            const boxRow = Math.floor(row / 3) * 3;
-            const boxCol = Math.floor(col / 3) * 3;
-            
-            for (let i = 0; i < 3; i++) {
-                for (let j = 0; j < 3; j++) {
-                    if (board[boxRow + i][boxCol + j] === num) {
-                        return false;
-                    }
-                }
-            }
-            
             return true;
         }
 
-        // 数独のシャッフル（行、列、ブロックを入れ替えて多様性を持たせる）
+        function seededShuffle(array, rng) {
+            const newArr = [...array];
+            for (let i = newArr.length - 1; i > 0; i--) {
+                const j = rng.randomInt(0, i);
+                [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+            }
+            return newArr;
+        }
+
         function shuffleSudoku(rng) {
-            // 同じブロック内の行を入れ替える
-            for (let block = 0; block < 3; block++) {
-                const base = block * 3;
-                for (let i = 0; i < 2; i++) {
-                    const r1 = base + rng.randomInt(0, 2);
-                    const r2 = base + rng.randomInt(0, 2);
-                    if (r1 !== r2) {
-                        [grid[r1], grid[r2]] = [grid[r2], grid[r1]];
-                    }
-                }
-            }
-            
-            // 同じブロック内の列を入れ替える
-            for (let block = 0; block < 3; block++) {
-                const base = block * 3;
-                for (let i = 0; i < 2; i++) {
-                    const c1 = base + rng.randomInt(0, 2);
-                    const c2 = base + rng.randomInt(0, 2);
-                    if (c1 !== c2) {
-                        for (let r = 0; r < 9; r++) {
-                            [grid[r][c1], grid[r][c2]] = [grid[r][c2], grid[r][c1]];
+            // 3x3ブロック内での入れ替え
+            const swapInBlock = (isRow) => {
+                for (let block = 0; block < 3; block++) {
+                    const base = block * 3;
+                    const a = base + rng.randomInt(0, 2);
+                    let b = base + rng.randomInt(0, 2);
+                    if (a === b) b = base + ((b + 1) % 3);
+                    for (let i = 0; i < 9; i++) {
+                        if (isRow) {
+                            [grid[a][i], grid[b][i]] = [grid[b][i], grid[a][i]];
+                        } else {
+                            [grid[i][a], grid[i][b]] = [grid[i][b], grid[i][a]];
                         }
                     }
                 }
-            }
-        }
+            };
 
-        // セルの削除（難易度に応じて）
-        function removeCells(rng) {
-            // 難易度に応じた削除するセルの数
-            let cellsToRemove;
-            switch(difficulty) {
-                case 'easy':
-                    cellsToRemove = 40; // 約40セル削除
-                    break;
-                case 'medium':
-                    cellsToRemove = 50; // 約50セル削除
-                    break;
-                case 'hard':
-                    cellsToRemove = 60; // 約60セル削除
-                    break;
-                default:
-                    cellsToRemove = 50;
-            }
-            
-            // セルをランダムに削除
-            const positions = [];
-            for (let i = 0; i < 9; i++) {
-                for (let j = 0; j < 9; j++) {
-                    positions.push([i, j]);
-                }
-            }
-            
-            const shuffledPositions = seededShuffle(positions, rng);
-            
-            // 削除して一意解を確認
-            let removed = 0;
-            for (const [row, col] of shuffledPositions) {
-                const temp = grid[row][col];
-                grid[row][col] = 0;
-                
-                // 難しいパズルでは一意解チェックを省略（パフォーマンス向上のため）
-                if (difficulty === 'hard' || hasUniqueSolution()) {
-                    removed++;
-                    if (removed >= cellsToRemove) {
-                        break;
-                    }
-                } else {
-                    // 一意解でなければ戻す
-                    grid[row][col] = temp;
-                }
-                
-                // 簡単な難易度では、一意解チェックを10セルごとに行う（パフォーマンス向上）
-                if (difficulty === 'easy' && removed % 10 !== 0) {
-                    removed++;
-                    if (removed >= cellsToRemove) {
-                        break;
-                    }
-                }
-            }
-        }
-
-        // 一意解を持つか確認（簡易版）
-        function hasUniqueSolution() {
-            // 簡易チェック：完全チェックは計算コストが高いため
-            // 実際には、2つの解を見つけようとするアプローチがより正確
-            
-            const tempGrid = grid.map(row => [...row]);
-            let count = 0;
-            
-            function countSolutions(board) {
-                if (count > 1) return false;
-                
-                const emptyCell = findEmptyCell(board);
-                if (!emptyCell) {
-                    count++;
-                    return count <= 1;
-                }
-                
-                const [row, col] = emptyCell;
-                
-                for (let num = 1; num <= 9; num++) {
-                    if (isSafe(board, row, col, num)) {
-                        board[row][col] = num;
-                        countSolutions(board);
-                        board[row][col] = 0;
-                    }
-                }
-                
-                return count <= 1;
-            }
-            
-            countSolutions(tempGrid);
-            return count === 1;
-        }
-
-        // 解答表示
-        function showSolution() {
-            stopTimer();
-            gameActive = false;
-            
-            userGrid = solution.map(row => [...row]);
-            
-            // グリッドを更新
-            const cells = document.querySelectorAll('.cell');
-            cells.forEach(cell => {
-                const row = parseInt(cell.getAttribute('data-row'));
-                const col = parseInt(cell.getAttribute('data-col'));
-                
-                if (!fixedCells[row][col]) {
-                    cell.textContent = solution[row][col];
-                    cell.classList.remove('error');
-                }
-            });
-            
-            document.getElementById('status').textContent = '解答が表示されました。';
-        }
-
-        // ヒントを与える
-        function giveHint() {
-            // 空のセルまたは間違ったセルを検索
-            const emptyCells = [];
-            const errorCells = [];
-            
-            for (let i = 0; i < 9; i++) {
-                for (let j = 0; j < 9; j++) {
-                    if (!fixedCells[i][j]) {
-                        if (userGrid[i][j] === 0) {
-                            emptyCells.push([i, j]);
-                        } else if (userGrid[i][j] !== solution[i][j]) {
-                            errorCells.push([i, j]);
+            // ブロックの入れ替え
+            const swapBlocks = (isRow) => {
+                const first = rng.randomInt(0, 2);
+                let second = rng.randomInt(0, 2);
+                if (first === second) second = (second + 1) % 3;
+                for (let offset = 0; offset < 3; offset++) {
+                    const a = first * 3 + offset;
+                    const b = second * 3 + offset;
+                    for (let i = 0; i < 9; i++) {
+                        if (isRow) {
+                            [grid[a][i], grid[b][i]] = [grid[b][i], grid[a][i]];
+                        } else {
+                            [grid[i][a], grid[i][b]] = [grid[i][b], grid[i][a]];
                         }
                     }
                 }
-            }
-            
-            // 優先的に間違ったセルを修正
-            let hintCell;
-            if (errorCells.length > 0) {
-                hintCell = errorCells[Math.floor(Math.random() * errorCells.length)];
-            } else if (emptyCells.length > 0) {
-                hintCell = emptyCells[Math.floor(Math.random() * emptyCells.length)];
-            } else {
-                document.getElementById('status').textContent = 'これ以上ヒントはありません。パズルは完成しています！';
-                return;
-            }
-            
-            const [row, col] = hintCell;
-            userGrid[row][col] = solution[row][col];
-            
-            // グリッドを更新
-            renderGrid();
-            
-            document.getElementById('status').textContent = `ヒント: (${row+1},${col+1})のセルに${solution[row][col]}を入れました。`;
-            
-            // 勝利チェック
-            checkVictory();
+            };
+
+            swapInBlock(true);
+            swapInBlock(false);
+            swapBlocks(true);
+            swapBlocks(false);
         }
 
-        // 解答のチェック
-        function checkSolution() {
-            let isCorrect = true;
-            let emptyCells = 0;
-            
-            const cells = document.querySelectorAll('.cell');
-            cells.forEach(cell => {
-                const row = parseInt(cell.getAttribute('data-row'));
-                const col = parseInt(cell.getAttribute('data-col'));
-                
-                if (!fixedCells[row][col]) {
-                    if (userGrid[row][col] === 0) {
-                        emptyCells++;
-                    } else if (userGrid[row][col] !== solution[row][col]) {
-                        cell.classList.add('error');
-                        isCorrect = false;
-                    } else {
-                        cell.classList.remove('error');
+        // ==========================================
+        //  UI Functions
+        // ==========================================
+        function renderGrid() {
+            const container = document.getElementById('sudoku-grid');
+            container.innerHTML = '';
+            selectedCell = null;
+            for(let r=0; r<9; r++) {
+                for(let c=0; c<9; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.dataset.row = r;
+                    cell.dataset.col = c;
+                    
+                    // 3x3 border logic applied in CSS via nth-child, but we can enforce simpler borders here if needed.
+                    // CSS Grid gap handles the main borders.
+
+                    if(fixedCells[r][c]) {
+                        cell.textContent = grid[r][c];
+                        cell.classList.add('fixed');
+                    } else if(userGrid[r][c] !== 0) {
+                        cell.textContent = userGrid[r][c];
                     }
+                    
+                    cell.onclick = () => {
+                        if(selectedCell) selectedCell.classList.remove('selected');
+                        selectedCell = cell;
+                        cell.classList.add('selected');
+                        if(userGrid[r][c] !== 0) highlightSameNumbers(userGrid[r][c]);
+                        else highlightSameNumbers(-1); // Clear
+                    };
+                    container.appendChild(cell);
                 }
-            });
-            
-            if (emptyCells > 0) {
-                document.getElementById('status').textContent = `まだ${emptyCells}個の空白のセルがあります。`;
-            } else if (isCorrect) {
-                showVictoryScreen();
-            } else {
-                document.getElementById('status').textContent = '間違いがあります。赤くマークされたセルをチェックしてください。';
             }
+            updateConflicts();
         }
 
-        // 勝利条件のチェック
+        function highlightSameNumbers(num) {
+            document.querySelectorAll('.same-number').forEach(el => el.classList.remove('same-number'));
+            if(num === -1 || num === 0) return;
+            document.querySelectorAll('.cell').forEach(cell => {
+                const r = cell.dataset.row;
+                const c = cell.dataset.col;
+                const val = fixedCells[r][c] ? grid[r][c] : userGrid[r][c];
+                if(val === num) cell.classList.add('same-number');
+            });
+        }
+
+        function setDifficulty(level) {
+            difficulty = level;
+            document.querySelectorAll('.difficulty-selector button').forEach(b => b.classList.remove('active'));
+            document.getElementById(level).classList.add('active');
+            startNewGame();
+        }
+
         function checkVictory() {
-            for (let i = 0; i < 9; i++) {
-                for (let j = 0; j < 9; j++) {
-                    if (userGrid[i][j] !== solution[i][j]) {
-                        return false;
-                    }
-                }
+            for(let r=0; r<9; r++) for(let c=0; c<9; c++) {
+                if(userGrid[r][c] !== solution[r][c]) return;
             }
-            
-            // 勝利！
-            showVictoryScreen();
-            return true;
-        }
-        
-        // 勝利画面を表示
-        function showVictoryScreen() {
             stopTimer();
-            gameActive = false;
-            
-            // 勝利統計を更新
-            document.getElementById('victory-stats').textContent = 
-                `難易度: ${getDifficultyText()}\nクリア時間: ${formatTime(seconds)}\nシード: ${currentSeed}`;
-            
-            // 勝利ポップアップを表示
+            document.getElementById('victory-stats').innerHTML =
+                `難易度: ${difficulty.toUpperCase()}<br>タイム: ${document.getElementById('timer').textContent}<br>Seed: ${currentSeed}`;
             document.getElementById('victory-container').style.display = 'flex';
-            
-            document.getElementById('status').textContent = '正解です！おめでとうございます！';
+            localStorage.removeItem(STORAGE_KEY);
         }
-    
 
-// 現在の盤面をJSONに変換してエクスポート
-function exportToJSON() {
-    const gameState = {
-        difficulty: difficulty,
-        grid: grid,
-        solution: solution,
-        userGrid: userGrid,
-        fixedCells: fixedCells,
-        timer: seconds
-    };
-    
-    const jsonString = JSON.stringify(gameState, null, 2);
-    document.getElementById('export-json').value = jsonString;
-    
-    document.getElementById('status').textContent = '現在の盤面がJSONとしてエクスポートされました。';
-}
+        // ==========================================
+        //  Utilities (Timer, Seed, etc.)
+        // ==========================================
+        function startTimer() {
+            if(timer) return;
+            timer = setInterval(() => {
+                seconds++;
+                updateTimerDisplay();
+                saveState();
+            }, 1000);
+        }
+        function stopTimer() { clearInterval(timer); timer = null; }
 
-// JSONからインポート
-function importFromJSON() {
-    try {
-        const jsonString = document.getElementById('import-json').value.trim();
-        
-        if (!jsonString) {
-            document.getElementById('status').textContent = 'インポートするJSONを入力してください。';
-            return;
+        function updateTimerDisplay() {
+            const m = Math.floor(seconds/60).toString().padStart(2,'0');
+            const s = (seconds%60).toString().padStart(2,'0');
+            document.getElementById('timer').textContent = `${m}:${s}`;
         }
         
-        const gameState = JSON.parse(jsonString);
-        
-        // ゲーム状態を復元
-        difficulty = gameState.difficulty || 'medium';
-        grid = gameState.grid || Array(9).fill().map(() => Array(9).fill(0));
-        solution = gameState.solution || Array(9).fill().map(() => Array(9).fill(0));
-        userGrid = gameState.userGrid || Array(9).fill().map(() => Array(9).fill(0));
-        fixedCells = gameState.fixedCells || Array(9).fill().map(() => Array(9).fill(false));
-        
-        // タイマーを設定
-        seconds = gameState.timer || 0;
-        updateTimerDisplay();
-        
-        // グリッドを描画
-        renderGrid();
-        
-        // 選択解除
-        selectedCell = null;
-        
-        document.getElementById('status').textContent = 'JSONから盤面がインポートされました。';
-        
-    } catch (error) {
-        document.getElementById('status').textContent = `インポートエラー: ${error.message}`;
-    }
-}
-
-//#region
-// 難易度を分析する
-function analyzeDifficulty() {
-    document.getElementById('status').textContent = '難易度を分析中...';
-    
-    // 非同期で分析を実行（UIをブロックしないため）
-    setTimeout(() => {
-        // 各種指標を計算
-        const emptyCount = countEmptyCells(grid);
-        const distributionScore = calculateDistributionScore(grid);
-        const solvingTechniques = evaluateSolvingTechniques(grid, solution);
-        const backtrackDepth = evaluateBacktrackDepth(grid, solution);
-        const overallScore = calculateOverallScore(emptyCount, distributionScore, solvingTechniques.score, backtrackDepth.minDepth);
-        
-        // 結果表示用のHTMLを生成
-        let resultHTML = '';
-        
-        // 空白セル数の評価
-        resultHTML += createMetricHTML('空白セル数', 
-            `${emptyCount} セル (${getEmptyCountDifficulty(emptyCount)})`,
-            '空白セルが多いほど、パズルは一般的に難しくなります。');
-        
-        // 空白セル分布の評価
-        resultHTML += createMetricHTML('空白セル分布', 
-            `${distributionScore.toFixed(2)} / 10 (${getDistributionDifficulty(distributionScore)})`,
-            '空白セルが均等に分布しているほど解きにくくなる傾向があります。');
-        
-        // 解法テクニックの評価
-        resultHTML += createMetricHTML('必要な解法テクニック', 
-            `レベル ${solvingTechniques.level} (${getTechniqueDifficulty(solvingTechniques.level)})`,
-            `最も高度なテクニック: ${solvingTechniques.highestTechnique}`);
-        
-        // バックトラック深さの評価
-        resultHTML += createMetricHTML('バックトラック深さ', 
-            `最小深さ: ${backtrackDepth.minDepth}, 平均深さ: ${backtrackDepth.avgDepth.toFixed(2)} (${getBacktrackDifficulty(backtrackDepth.minDepth)})`,
-            'バックトラックの深さが大きいほど、論理的に解くのが難しいパズルです。');
-        
-        // 総合評価
-        const overallDifficulty = getOverallDifficulty(overallScore);
-        resultHTML += createMetricHTML('総合難易度スコア', 
-            `${overallScore.toFixed(2)} / 100 (${overallDifficulty})`,
-            '上記の指標を総合的に評価した難易度です。');
-        
-        // 結果を表示
-        document.getElementById('analysis-content').innerHTML = resultHTML;
-        document.getElementById('analysis-results').style.display = 'block';
-        document.getElementById('status').textContent = `難易度分析が完了しました。総合評価: ${overallDifficulty}`;
-    }, 0);
-}
-
-// 空白セルの数をカウント
-function countEmptyCells(grid) {
-    let count = 0;
-    for (let i = 0; i < 9; i++) {
-        for (let j = 0; j < 9; j++) {
-            if (grid[i][j] === 0) {
-                count++;
-            }
+        function useSeedFromInput() {
+            const val = document.getElementById('seed-input').value.trim();
+            if(val) startNewGameWithSeed(val);
         }
-    }
-    return count;
-}
-
-// 空白セルの分布を評価（均等に分布しているほど高スコア）
-function calculateDistributionScore(grid) {
-    // 各行、列、ブロックごとの空白セル数をカウント
-    const rowCounts = Array(9).fill(0);
-    const colCounts = Array(9).fill(0);
-    const blockCounts = Array(9).fill(0);
-    
-    for (let i = 0; i < 9; i++) {
-        for (let j = 0; j < 9; j++) {
-            if (grid[i][j] === 0) {
-                rowCounts[i]++;
-                colCounts[j]++;
-                const blockIndex = Math.floor(i / 3) * 3 + Math.floor(j / 3);
-                blockCounts[blockIndex]++;
-            }
+        function copyCurrentSeed() {
+            navigator.clipboard.writeText(currentSeed);
+            alert('シードをコピーしました');
         }
-    }
-    
-    // 標準偏差を計算
-    const rowStdDev = calculateStandardDeviation(rowCounts);
-    const colStdDev = calculateStandardDeviation(colCounts);
-    const blockStdDev = calculateStandardDeviation(blockCounts);
-    
-    // 標準偏差が小さいほど均等に分布している（スコアは高くなる）
-    const maxStdDev = 9; // 理論上の最大値
-    const normalizedScore = 10 * (1 - (rowStdDev + colStdDev + blockStdDev) / (3 * maxStdDev));
-    
-    return Math.max(0, Math.min(10, normalizedScore));
-}
-
-// 標準偏差を計算するヘルパー関数
-function calculateStandardDeviation(array) {
-    const n = array.length;
-    const mean = array.reduce((a, b) => a + b, 0) / n;
-    const variance = array.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / n;
-    return Math.sqrt(variance);
-}
-
-// 解法テクニックの評価
-function evaluateSolvingTechniques(grid, solution) {
-    // テスト用のグリッドをコピー
-    const testGrid = grid.map(row => [...row]);
-    
-    // 単一候補法（レベル1）
-    if (applySingleCandidate(testGrid)) {
-        if (isComplete(testGrid)) {
-            return { level: 1, score: 10, highestTechnique: "単一候補法" };
+        function giveHint() {
+            if(!gameActive()) startTimer();
+            // 単純に空きマスを一つ埋める
+            const empties = [];
+            for(let r=0; r<9; r++) for(let c=0; c<9; c++) if(userGrid[r][c] === 0) empties.push([r,c]);
+            if(empties.length === 0) return;
+            const [r, c] = empties[Math.floor(Math.random()*empties.length)];
+            userGrid[r][c] = solution[r][c];
+            renderGrid(); // Re-render to show update
+            checkVictory();
+            saveState();
         }
-    }
-    
-    // 単一位置法（レベル2）
-    if (applySinglePosition(testGrid)) {
-        if (isComplete(testGrid)) {
-            return { level: 2, score: 25, highestTechnique: "単一位置法" };
-        }
-    }
-    
-    // 候補数字の絞り込み（レベル3）
-    if (applyCandidateLines(testGrid)) {
-        if (isComplete(testGrid)) {
-            return { level: 3, score: 40, highestTechnique: "候補数字の絞り込み" };
-        }
-    }
-    
-    // 複数の候補パターン（レベル4）
-    if (applyMultipleCandidatePatterns(testGrid)) {
-        if (isComplete(testGrid)) {
-            return { level: 4, score: 60, highestTechnique: "複数の候補パターン(ナケッドペア等)" };
-        }
-    }
-    
-    // X-Wing等の高度なテクニック（レベル5）
-    if (applyAdvancedTechniques(testGrid)) {
-        if (isComplete(testGrid)) {
-            return { level: 5, score: 80, highestTechnique: "X-Wing/Swordfish等" };
-        }
-    }
-    
-    // バックトラッキングが必要（レベル6）
-    return { level: 6, score: 100, highestTechnique: "バックトラッキング必須" };
-}
-
-// 単一候補法を適用（簡易版）
-function applySingleCandidate(grid) {
-    let applied = false;
-    
-    // 単一候補の探索と適用（簡易的な実装）
-    // 実際の実装では候補管理などが必要
-    
-    // シミュレーション用の簡易実装
-    let progress = true;
-    while (progress) {
-        progress = false;
-        for (let i = 0; i < 9; i++) {
-            for (let j = 0; j < 9; j++) {
-                if (grid[i][j] === 0) {
-                    const candidates = findCandidates(grid, i, j);
-                    if (candidates.length === 1) {
-                        grid[i][j] = candidates[0];
-                        progress = true;
-                        applied = true;
+        function checkSolution() {
+            // エラーを表示
+            let errors = 0;
+            document.querySelectorAll('.cell').forEach(cell => {
+                const r = parseInt(cell.dataset.row);
+                const c = parseInt(cell.dataset.col);
+                if(!fixedCells[r][c] && userGrid[r][c] !== 0) {
+                    if(userGrid[r][c] !== solution[r][c]) {
+                        cell.classList.add('error');
+                        errors++;
                     }
                 }
+            });
+            alert(errors === 0 ? "現在の入力に間違いはありません" : `${errors}箇所の間違いがあります`);
+        }
+
+        // ==========================================
+        //  Analysis Logic (Honest Version)
+        // ==========================================
+        function analyzeDifficulty() {
+            // フェイク（ランダム判定）を排除し、実測値のみを表示
+            let emptyCount = 0;
+            for(let r=0; r<9; r++) for(let c=0; c<9; c++) if(grid[r][c]===0) emptyCount++;
+
+            const givens = 81 - emptyCount;
+
+            const html = `
+                <div style="margin-bottom:10px;"><strong>空白セル数:</strong> ${emptyCount} / 81</div>
+                <div style="margin-bottom:10px;"><strong>与えられた数字:</strong> ${givens}</div>
+                <div style="margin-bottom:10px;"><strong>推定難易度:</strong> ${difficulty.toUpperCase()}</div>
+                <div style="font-size:12px; color:#666;">※この盤面は論理的に一意の解を持つことが保証されています。</div>
+            `;
+            document.getElementById('analysis-content').innerHTML = html;
+            document.getElementById('analysis-results').style.display = 'block';
+        }
+
+        // ==========================================
+        //  State Persistence & Conflict Highlighting
+        // ==========================================
+        function togglePause() {
+            paused = !paused;
+            if (paused) {
+                stopTimer();
+                document.body.classList.add('paused');
+                document.getElementById('pause').textContent = '再開';
+            } else {
+                document.body.classList.remove('paused');
+                document.getElementById('pause').textContent = '一時停止';
+                startTimer();
+            }
+            saveState();
+        }
+
+        function saveState() {
+            const state = {
+                grid,
+                solution,
+                userGrid,
+                fixedCells,
+                difficulty,
+                currentSeed,
+                seconds,
+                running: timer !== null,
+                paused,
+            };
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+            } catch (e) {
+                console.warn('Failed to save state', e);
             }
         }
-    }
-    
-    return applied;
-}
 
-// 単一位置法を適用（簡易版）
-function applySinglePosition(grid) {
-    // シミュレーション用のダミー実装
-    return Math.random() > 0.7;
-}
+        function loadSavedGame() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return false;
+                const data = JSON.parse(raw);
+                if (!data.grid || !data.solution || !data.userGrid) return false;
 
-// 候補数字の絞り込みを適用（簡易版）
-function applyCandidateLines(grid) {
-    // シミュレーション用のダミー実装
-    return Math.random() > 0.8;
-}
+                grid = data.grid;
+                solution = data.solution;
+                userGrid = data.userGrid;
+                fixedCells = data.fixedCells;
+                difficulty = data.difficulty || 'medium';
+                currentSeed = data.currentSeed || null;
+                seconds = data.seconds || 0;
+                paused = !!data.paused;
 
-// 複数の候補パターン（ナケッドペア等）を適用（簡易版）
-function applyMultipleCandidatePatterns(grid) {
-    // シミュレーション用のダミー実装
-    return Math.random() > 0.9;
-}
+                document.getElementById('seed-input').value = currentSeed || '';
+                document.querySelectorAll('.difficulty-selector button').forEach(b => b.classList.remove('active'));
+                document.getElementById(difficulty).classList.add('active');
 
-// 高度なテクニック（X-Wing等）を適用（簡易版）
-function applyAdvancedTechniques(grid) {
-    // シミュレーション用のダミー実装
-    return Math.random() > 0.95;
-}
+                renderGrid();
+                updateTimerDisplay();
+                document.getElementById('status').textContent = currentSeed ? `再開しました (Seed: ${currentSeed})` : '再開しました';
 
-// セルの候補数字を見つける（ヘルパー関数）
-function findCandidates(grid, row, col) {
-    if (grid[row][col] !== 0) {
-        return [];
-    }
-    
-    const candidates = [];
-    for (let num = 1; num <= 9; num++) {
-        if (isSafe(grid, row, col, num)) {
-            candidates.push(num);
-        }
-    }
-    return candidates;
-}
-
-// グリッドが完成しているか確認
-function isComplete(grid) {
-    for (let i = 0; i < 9; i++) {
-        for (let j = 0; j < 9; j++) {
-            if (grid[i][j] === 0) {
+                document.body.classList.toggle('paused', paused);
+                document.getElementById('pause').textContent = paused ? '再開' : '一時停止';
+                if (data.running && !paused) startTimer();
+                return true;
+            } catch (e) {
+                console.warn('Failed to load state', e);
                 return false;
             }
         }
-    }
-    return true;
-}
 
-// バックトラッキングの深さを評価
-function evaluateBacktrackDepth(grid, solution) {
-    // 最小深さと平均深さを計算
-    let totalDepth = 0;
-    let count = 0;
-    let minDepth = Infinity;
-    
-    // テスト用に少数のセルだけサンプリング（効率化のため）
-    const emptyCells = [];
-    for (let i = 0; i < 9; i++) {
-        for (let j = 0; j < 9; j++) {
-            if (grid[i][j] === 0) {
-                emptyCells.push([i, j]);
+        function updateConflicts() {
+            document.querySelectorAll('.cell').forEach(cell => cell.classList.remove('conflict'));
+
+            const conflicts = new Set();
+            const addConflicts = (positions) => {
+                if (positions.length > 1) {
+                    positions.forEach(([r, c]) => conflicts.add(`${r}-${c}`));
+                }
+            };
+
+            for (let r = 0; r < 9; r++) {
+                const rowMap = new Map();
+                for (let c = 0; c < 9; c++) {
+                    const val = fixedCells[r][c] ? grid[r][c] : userGrid[r][c];
+                    if (!val) continue;
+                    const arr = rowMap.get(val) || [];
+                    arr.push([r, c]);
+                    rowMap.set(val, arr);
+                }
+                rowMap.forEach(addConflicts);
             }
+
+            for (let c = 0; c < 9; c++) {
+                const colMap = new Map();
+                for (let r = 0; r < 9; r++) {
+                    const val = fixedCells[r][c] ? grid[r][c] : userGrid[r][c];
+                    if (!val) continue;
+                    const arr = colMap.get(val) || [];
+                    arr.push([r, c]);
+                    colMap.set(val, arr);
+                }
+                colMap.forEach(addConflicts);
+            }
+
+            for (let br = 0; br < 3; br++) {
+                for (let bc = 0; bc < 3; bc++) {
+                    const blockMap = new Map();
+                    for (let r = br * 3; r < br * 3 + 3; r++) {
+                        for (let c = bc * 3; c < bc * 3 + 3; c++) {
+                            const val = fixedCells[r][c] ? grid[r][c] : userGrid[r][c];
+                            if (!val) continue;
+                            const arr = blockMap.get(val) || [];
+                            arr.push([r, c]);
+                            blockMap.set(val, arr);
+                        }
+                    }
+                    blockMap.forEach(addConflicts);
+                }
+            }
+
+            conflicts.forEach(key => {
+                const [r, c] = key.split('-');
+                const cell = document.querySelector(`.cell[data-row="${r}"][data-col="${c}"]`);
+                if (cell) cell.classList.add('conflict');
+            });
         }
-    }
-    
-    // ランダムにサンプリング（最大10セル）
-    const sampleSize = Math.min(10, emptyCells.length);
-    const sampledCells = emptyCells.sort(() => 0.5 - Math.random()).slice(0, sampleSize);
-    
-    for (const [row, col] of sampledCells) {
-        const depth = simulateBacktrackDepth(grid, row, col, solution);
-        totalDepth += depth;
-        count++;
-        minDepth = Math.min(minDepth, depth);
-    }
-    
-    const avgDepth = count > 0 ? totalDepth / count : 0;
-    return { minDepth, avgDepth };
-}
 
-// バックトラックの深さをシミュレート（簡易版）
-function simulateBacktrackDepth(grid, startRow, startCol, solution) {
-    // 簡易実装（実際はもっと複雑になる）
-    // ここでは0?5のランダムな深さを返す
-    return Math.floor(Math.random() * 6);
-}
-
-// 総合スコアを計算
-function calculateOverallScore(emptyCount, distributionScore, techniqueScore, backtrackDepth) {
-    // 各指標に重みを付けて計算
-    const emptyWeight = 0.1;
-    const distributionWeight = 0.2;
-    const techniqueWeight = 0.4;
-    const backtrackWeight = 0.3;
-    
-    // 空白セル数は30?65の範囲で正規化
-    const normalizedEmpty = Math.min(1, Math.max(0, (emptyCount - 30) / 35));
-    
-    // バックトラック深さは0?5の範囲で正規化
-    const normalizedBacktrack = Math.min(1, Math.max(0, backtrackDepth / 5));
-    
-    // 総合スコア（0-100）
-    return 100 * (
-        emptyWeight * normalizedEmpty +
-        distributionWeight * (distributionScore / 10) +
-        techniqueWeight * (techniqueScore / 100) +
-        backtrackWeight * normalizedBacktrack
-    );
-}
-
-// 結果表示用のHTML生成
-function createMetricHTML(title, value, description) {
-    return `
-        <div class="analysis-metric">
-            <h4>${title}</h4>
-            <p class="difficulty-score">${value}</p>
-            <p>${description}</p>
-        </div>
-    `;
-}
-
-// 難易度の評価関数
-function getEmptyCountDifficulty(count) {
-    if (count < 40) return '<span class="difficulty-easy">簡単</span>';
-    if (count < 50) return '<span class="difficulty-medium">中級</span>';
-    if (count < 60) return '<span class="difficulty-hard">難しい</span>';
-    return '<span class="difficulty-extreme">超難しい</span>';
-}
-
-function getDistributionDifficulty(score) {
-    if (score < 3) return '<span class="difficulty-easy">簡単</span>';
-    if (score < 6) return '<span class="difficulty-medium">中級</span>';
-    if (score < 8) return '<span class="difficulty-hard">難しい</span>';
-    return '<span class="difficulty-extreme">超難しい</span>';
-}
-
-function getTechniqueDifficulty(level) {
-    if (level <= 1) return '<span class="difficulty-easy">簡単</span>';
-    if (level <= 2) return '<span class="difficulty-medium">中級</span>';
-    if (level <= 4) return '<span class="difficulty-hard">難しい</span>';
-    return '<span class="difficulty-extreme">超難しい</span>';
-}
-
-function getBacktrackDifficulty(depth) {
-    if (depth === 0) return '<span class="difficulty-easy">簡単</span>';
-    if (depth <= 1) return '<span class="difficulty-medium">中級</span>';
-    if (depth <= 3) return '<span class="difficulty-hard">難しい</span>';
-    return '<span class="difficulty-extreme">超難しい</span>';
-}
-
-function getOverallDifficulty(score) {
-    if (score < 25) return '<span class="difficulty-easy">簡単</span>';
-    if (score < 50) return '<span class="difficulty-medium">中級</span>';
-    if (score < 75) return '<span class="difficulty-hard">難しい</span>';
-    return '<span class="difficulty-extreme">超難しい</span>';
-}
-//#endregion
     </script>
-
-    <a href="https://tomtomyoung.github.io/altchan-pages/" target="_blank" rel="noopener noreferrer">戻る</a>
-
 </body>
 </html>
